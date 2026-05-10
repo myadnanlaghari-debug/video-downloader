@@ -1,17 +1,13 @@
 const express = require('express');
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core');
 const ffmpeg = require('fluent-ffmpeg');
-const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const cors = require('cors');
-const path = require('path');
-
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 const app = express();
 app.use(cors());
 app.use(express.static('public'));
 
-// Main Download Route
+// YouTube Download Endpoint
 app.get('/download', async (req, res) => {
   const { url, format = 'mp4', quality = 'highest' } = req.query;
 
@@ -19,7 +15,9 @@ app.get('/download', async (req, res) => {
 
   try {
     const info = await ytdl.getInfo(url);
-    const title = info.videoDetails.title.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 100);
+    const title = info.videoDetails.title
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .substring(0, 100);
 
     res.setHeader('Content-Disposition', `attachment; filename="${title}.${format}"`);
 
@@ -32,7 +30,7 @@ app.get('/download', async (req, res) => {
             .pipe(res)
         );
     } else {
-      // MP4 Video
+      // MP4
       const videoFormat = ytdl.chooseFormat(info.formats, {
         quality: quality,
         filter: 'videoandaudio'
@@ -42,7 +40,7 @@ app.get('/download', async (req, res) => {
     }
   } catch (err) {
     console.error(err);
-    res.status(500).send('Download failed. This video may be private or restricted.');
+    res.status(500).send('Failed to process video. It may be private, age-restricted, or blocked.');
   }
 });
 
