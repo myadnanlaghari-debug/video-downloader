@@ -7,7 +7,6 @@ const app = express();
 app.use(cors());
 app.use(express.static('public'));
 
-// YouTube Download Endpoint
 app.get('/download', async (req, res) => {
   const { url, format = 'mp4', quality = 'highest' } = req.query;
 
@@ -30,7 +29,6 @@ app.get('/download', async (req, res) => {
             .pipe(res)
         );
     } else {
-      // MP4
       const videoFormat = ytdl.chooseFormat(info.formats, {
         quality: quality,
         filter: 'videoandaudio'
@@ -40,7 +38,7 @@ app.get('/download', async (req, res) => {
     }
   } catch (err) {
     console.error(err);
-    res.status(500).send('Failed to process video. It may be private, age-restricted, or blocked.');
+    res.status(500).send('Failed to download. Video may be private, age-restricted, or unavailable.');
   }
 });
 
