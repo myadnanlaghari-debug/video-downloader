@@ -4,8 +4,7 @@
   "description": "YouTube & Facebook Video Downloader",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
