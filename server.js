@@ -17,39 +17,33 @@ app.get('/download', (req, res) => {
   if (!url) return res.status(400).send('URL is required');
 
   const timestamp = Date.now();
-  const filename = `video_${timestamp}.${format}`;
-  const outputPath = path.join(TEMP_DIR, filename);
+  const ext = format === 'mp3' ? 'mp3' : 'mp4';
+  const outputPath = path.join(TEMP_DIR, `video_${timestamp}.${ext}`);
 
-  console.log(`📥 Starting download: ${format} → ${url}`);
+  console.log(`📥 Download started: ${format.toUpperCase()} - ${url}`);
 
-  let command;
-  if (format === 'mp3') {
-    command = `yt-dlp -f bestaudio --extract-audio --audio-format mp3 --audio-quality 0 -o "${outputPath}" "${url}"`;
-  } else {
-    command = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best" --merge-output-format mp4 -o "${outputPath}" "${url}"`;
-  }
+  let command = format === 'mp3'
+    ? `yt-dlp -f bestaudio --extract-audio --audio-format mp3 --audio-quality 0 --no-warnings -o "${outputPath}" "${url}"`
+    : `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4 --no-warnings -o "${outputPath}" "${url}"`;
 
-  exec(command, { maxBuffer: 1000 * 1024 * 1024 }, (error, stdout, stderr) => {
+  exec(command, { maxBuffer: 1024 * 1024 * 500 }, (error, stdout, stderr) => {
     if (error) {
-      console.error(`Error: ${error.message}`);
-      return res.status(500).send('Download failed. Video may be restricted.');
+      console.error("yt-dlp Error:", stderr || error.message);
+      return res.status(500).send(`Download failed.<br><small>${stderr ? stderr.substring(0, 300) : error.message}</small>`);
     }
 
-    if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
-      return res.status(500).send('Downloaded file is empty. Try another video.');
+    if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size < 10000) {
+      return res.status(500).send('Downloaded file is empty or too small. Try another video.');
     }
 
     res.setHeader('Content-Type', format === 'mp3' ? 'audio/mpeg' : 'video/mp4');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="video.${ext}"`);
 
-    const fileStream = fs.createReadStream(outputPath);
-    fileStream.pipe(res);
+    const stream = fs.createReadStream(outputPath);
+    stream.pipe(res);
 
-    fileStream.on('end', () => {
-      // Delete file after sending
-      setTimeout(() => {
-        fs.unlink(outputPath, () => {});
-      }, 10000);
+    stream.on('end', () => {
+      setTimeout(() => fs.unlink(outputPath, () => {}), 15000);
     });
   });
 });
