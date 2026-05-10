@@ -1,18 +1,13 @@
 {
   "name": "video-downloader",
   "version": "1.0.0",
-  "description": "YouTube & Facebook Video Downloader",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
-    "@distube/ytdl-core": "^4.16.12",
-    "fluent-ffmpeg": "^2.1.3",
-    "cors": "^2.8.5"
-  },
-  "engines": {
-    "node": ">=18"
+    "cors": "^2.8.5",
+    "node-fetch": "^3.3.2"
   }
 }
