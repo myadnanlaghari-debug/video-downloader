@@ -1,6 +1,5 @@
 FROM node:20-slim
 
-# Install yt-dlp + ffmpeg
 RUN apt-get update && apt-get install -y \
     python3 python3-pip ffmpeg curl \
     && rm -rf /var/lib/apt/lists/* \
@@ -15,5 +14,8 @@ RUN npm install --omit=dev
 COPY . .
 
 EXPOSE 3000
+
+# Increase memory limit for Railway
+ENV NODE_OPTIONS="--max-old-space-size=512"
 
 CMD ["node", "server.js"]
