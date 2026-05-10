@@ -1,44 +1,50 @@
 const express = require('express');
-const ytdl = require('@distube/ytdl-core');
-const ffmpeg = require('fluent-ffmpeg');
 const cors = require('cors');
+const { exec } = require('child_process');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 app.use(cors());
 app.use(express.static('public'));
 
 app.get('/download', async (req, res) => {
-  const { url, format = 'mp4', quality = 'highest' } = req.query;
+  const { url, format = 'mp4' } = req.query;
 
   if (!url) return res.status(400).send('URL is required');
 
   try {
-    const info = await ytdl.getInfo(url);
-    const title = info.videoDetails.title
-      .replace(/[^a-zA-Z0-9._-]/g, '_')
-      .substring(0, 100);
+    const title = `video_${Date.now()}`;
+    const outputPath = path.join(__dirname, `${title}.${format}`);
 
-    res.setHeader('Content-Disposition', `attachment; filename="${title}.${format}"`);
+    let command;
 
     if (format === 'mp3') {
-      ytdl(url, { quality: 'highestaudio' })
-        .pipe(
-          ffmpeg()
-            .audioBitrate(quality === 'highest' ? 192 : 128)
-            .format('mp3')
-            .pipe(res)
-        );
+      command = `yt-dlp -f bestaudio --extract-audio --audio-format mp3 --audio-quality 0 -o "${outputPath}" "${url}"`;
     } else {
-      const videoFormat = ytdl.chooseFormat(info.formats, {
-        quality: quality,
-        filter: 'videoandaudio'
-      });
-
-      ytdl(url, { format: videoFormat }).pipe(res);
+      command = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best" --merge-output-format mp4 -o "${outputPath}" "${url}"`;
     }
+
+    res.setHeader('Content-Disposition', `attachment; filename="downloaded.${format}"`);
+
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error: ${error.message}`);
+        return res.status(500).send('Download failed. Try a different video.');
+      }
+
+      // Stream the file to user
+      const fileStream = fs.createReadStream(outputPath);
+      fileStream.pipe(res);
+
+      fileStream.on('end', () => {
+        // Clean up file after download
+        setTimeout(() => fs.unlink(outputPath, () => {}), 5000);
+      });
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Failed to download. Video may be private, age-restricted, or unavailable.');
+    res.status(500).send('Server error occurred.');
   }
 });
 
