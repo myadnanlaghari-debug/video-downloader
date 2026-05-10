@@ -13,9 +13,11 @@ RUN npm install --omit=dev
 
 COPY . .
 
+# Create temp directory
+RUN mkdir -p temp
+
 EXPOSE 3000
 
-# Increase memory limit for Railway
 ENV NODE_OPTIONS="--max-old-space-size=512"
 
 CMD ["node", "server.js"]
