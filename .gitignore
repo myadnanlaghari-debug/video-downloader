@@ -1,5 +1,55 @@
 ```
-# Logs and temp files
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py~
+
+# Dependencies
+venv/
+.venv/
+.env
+.env.local
+.env.*
+
+# Logs
 *.log
-server.log
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing
+.coverage
+coverage/
+htmlcov/
+.nosetests
+.unit_test_results.xml
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
 ```
