@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Downloader - Download from YouTube, Facebook, Pinterest, TikTok</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        .platforms {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .platform-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            backdrop-filter: blur(10px);
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        @media (max-width: 600px) {
+            .options-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102,126,234,0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            margin-top: 10px;
+        }
+
+        .video-info {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 25px;
+            display: none;
+        }
+
+        .video-info.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .video-info h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 12px;
+            align-items: start;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .info-value {
+            color: #333;
+        }
+
+        .thumbnail {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .thumbnail.show {
+            display: block;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.error {
+            background: #fee;
+            color: #c00;
+            border: 1px solid #fcc;
+        }
+
+        .alert.success {
+            background: #efe;
+            color: #0a0;
+            border: 1px solid #cfc;
+        }
+
+        .alert.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #eee;
+        }
+
+        .feature {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .feature-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .feature h4 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .feature p {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .api-link {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .api-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 Video Downloader</h1>
+            <p>Download videos and audio from your favorite platforms</p>
+            <div class="platforms">
+                <span class="platform-badge">▶️ YouTube</span>
+                <span class="platform-badge">📘 Facebook</span>
+                <span class="platform-badge">📌 Pinterest</span>
+                <span class="platform-badge">🎵 TikTok</span>
+                <span class="platform-badge">📷 Instagram</span>
+                <span class="platform-badge">🐦 Twitter/X</span>
+            </div>
+        </div>
+
+        <div class="content">
+            <div id="alert" class="alert"></div>
+
+            <div class="input-group">
+                <label for="url">Video URL</label>
+                <input 
+                    type="text" 
+                    id="url" 
+                    class="url-input" 
+                    placeholder="Paste video URL here (YouTube, Facebook, Pinterest, TikTok...)"
+                >
+            </div>
+
+            <div class="options-grid">
+                <div class="input-group">
+                    <label for="format">Format</label>
+                    <select id="format">
+                        <optgroup label="Video">
+                            <option value="mp4">MP4 (Recommended)</option>
+                            <option value="webm">WebM</option>
+                        </optgroup>
+                        <optgroup label="Audio">
+                            <option value="mp3">MP3 (Recommended)</option>
+                            <option value="m4a">M4A</option>
+                            <option value="wav">WAV</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label for="resolution">Resolution</label>
+                    <select id="resolution">
+                        <option value="best">Best Available</option>
+                        <option value="2160p">4K (2160p)</option>
+                        <option value="1440p">2K (1440p)</option>
+                        <option value="1080p" selected>Full HD (1080p)</option>
+                        <option value="720p">HD (720p)</option>
+                        <option value="480p">SD (480p)</option>
+                        <option value="360p">Low (360p)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="getInfoBtn" class="btn btn-info">
+                📋 Get Video Info
+            </button>
+
+            <button id="downloadBtn" class="btn">
+                ⬇️ Download Now
+            </button>
+
+            <div id="videoInfo" class="video-info">
+                <h3>📹 Video Information</h3>
+                <img id="thumbnail" class="thumbnail" alt="Video thumbnail">
+                <div class="info-grid">
+                    <span class="info-label">Title:</span>
+                    <span id="infoTitle" class="info-value"></span>
+
+                    <span class="info-label">Uploader:</span>
+                    <span id="infoUploader" class="info-value"></span>
+
+                    <span class="info-label">Duration:</span>
+                    <span id="infoDuration" class="info-value"></span>
+
+                    <span class="info-label">Available Qualities:</span>
+                    <span id="infoFormats" class="info-value"></span>
+                </div>
+            </div>
+
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">⚡</div>
+                    <h4>Fast Download</h4>
+                    <p>High-speed downloads with optimized servers</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🎯</div>
+                    <h4>Multiple Formats</h4>
+                    <p>Choose from MP4, WebM, MP3, M4A, WAV</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">📱</div>
+                    <h4>All Platforms</h4>
+                    <p>Support for YouTube, FB, Pinterest, TikTok</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🔒</div>
+                    <h4>Secure & Private</h4>
+                    <p>No registration required, completely free</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Powered by FastAPI & yt-dlp | 
+               <a href="/docs" class="api-link" target="_blank">API Documentation</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        
+        const urlInput = document.getElementById('url');
+        const formatSelect = document.getElementById('format');
+        const resolutionSelect = document.getElementById('resolution');
+        const getInfoBtn = document.getElementById('getInfoBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const alertDiv = document.getElementById('alert');
+        const videoInfoDiv = document.getElementById('videoInfo');
+        const thumbnailImg = document.getElementById('thumbnail');
+        const infoTitle = document.getElementById('infoTitle');
+        const infoUploader = document.getElementById('infoUploader');
+        const infoDuration = document.getElementById('infoDuration');
+        const infoFormats = document.getElementById('infoFormats');
+
+        let currentVideoInfo = null;
+
+        function showAlert(message, type = 'error') {
+            alertDiv.textContent = message;
+            alertDiv.className = `alert ${type} show`;
+            setTimeout(() => {
+                alertDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return 'Unknown';
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            if (h > 0) {
+                return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        async function getVideoInfo() {
+            const url = urlInput.value.trim();
+            if (!url) {
+                showAlert('Please enter a video URL');
+                return;
+            }
+
+            getInfoBtn.disabled = true;
+            getInfoBtn.innerHTML = '<span class="loading"></span>Fetching info...';
+
+            try {
+                const response = await fetch(`${API_BASE}/info?url=${encodeURIComponent(url)}`);
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to get video info');
+                }
+
+                currentVideoInfo = await response.json();
+                
+                // Display video info
+                infoTitle.textContent = currentVideoInfo.title || 'Unknown';
+                infoUploader.textContent = currentVideoInfo.uploader || 'Unknown';
+                infoDuration.textContent = formatDuration(currentVideoInfo.duration);
+                infoFormats.textContent = currentVideoInfo.available_formats.join(', ') || 'Best available';
+
+                if (currentVideoInfo.thumbnail) {
+                    thumbnailImg.src = currentVideoInfo.thumbnail;
+                    thumbnailImg.classList.add('show');
+                } else {
+                    thumbnailImg.classList.remove('show');
+                }
+
+                videoInfoDiv.classList.add('show');
+                showAlert('Video information loaded successfully!', 'success');
+
+            } catch (error) {
+                showAlert(`Error: ${error.message}`);
+                videoInfoDiv.classList.remove('show');
+            } finally {
+                getInfoBtn.disabled = false;
+                getInfoBtn.innerHTML = '📋 Get Video Info';
+            }
+        }
+
+        async function downloadVideo() {
+            const url = urlInput.value.trim();
+            if (!url) {
+                showAlert('Please enter a video URL');
+                return;
+            }
+
+            const format = formatSelect.value;
+            const resolution = resolutionSelect.value;
+
+            downloadBtn.disabled = true;
+            downloadBtn.innerHTML = '<span class="loading"></span>Preparing download...';
+
+            try {
+                // Create download link and trigger it
+                const downloadUrl = `${API_BASE}/download?url=${encodeURIComponent(url)}&format=${format}&resolution=${resolution}`;
+                
+                // Create a temporary link and click it
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = '';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                showAlert('Download started! Check your browser\'s download folder.', 'success');
+
+            } catch (error) {
+                showAlert(`Download failed: ${error.message}`);
+            } finally {
+                downloadBtn.disabled = false;
+                downloadBtn.innerHTML = '⬇️ Download Now';
+            }
+        }
+
+        // Event listeners
+        getInfoBtn.addEventListener('click', getVideoInfo);
+        downloadBtn.addEventListener('click', downloadVideo);
+
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                getVideoInfo();
+            }
+        });
+
+        // Auto-detect platform and suggest format
+        urlInput.addEventListener('input', () => {
+            const url = urlInput.value.toLowerCase();
+            if (url.includes('youtube') || url.includes('youtu.be')) {
+                resolutionSelect.disabled = false;
+            } else if (url.includes('tiktok')) {
+                // TikTok often has limited resolution options
+                resolutionSelect.value = 'best';
+            }
+        });
+    </script>
+</body>
+</html>

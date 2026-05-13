@@ -1,39 +1,48 @@
-import os
-import uuid
-from fastapi import FastAPI, Query, HTTPException
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import yt_dlp
-from dotenv import load_dotenv
+import io
+import os
+import tempfile
+import uuid
 
 app = FastAPI(
-    title="Social Media Video Downloader API",
-    description="Download videos from YouTube, Facebook, Pinterest, TikTok with resolution and format selection",
+    title="Video Downloader API",
+    description="Download videos from YouTube, Facebook, Pinterest, TikTok and more",
     version="1.0.0"
 )
 
-# Load environment variables from .env file
-load_dotenv()
+# Enable CORS for frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# CORS configuration
-allowed_origin = os.getenv("ALLOWED_ORIGIN", "*")
-if allowed_origin == "*":
-    # Allow all origins for development
-    app.add_middleware(CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-else:
-    app.add_middleware(CORSMiddleware,
-        allow_origins=[allowed_origin],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+# Supported platforms
+SUPPORTED_PLATFORMS = [
+    "YouTube",
+    "Facebook", 
+    "Pinterest",
+    "TikTok",
+    "Instagram",
+    "Twitter/X"
+]
+
+# Available resolutions
+RESOLUTIONS = ["360p", "480p", "720p", "1080p", "1440p", "2160p", "best"]
+
+# Available formats
+FORMATS = {
+    "video": ["mp4", "webm"],
+    "audio": ["mp3", "m4a", "wav"]
+}
 
 
 class VideoInfo(BaseModel):
@@ -41,237 +50,239 @@ class VideoInfo(BaseModel):
     duration: Optional[int] = None
     thumbnail: Optional[str] = None
     uploader: Optional[str] = None
-    available_formats: List[dict]
+    available_formats: List[str] = []
+    url: str
 
 
-class DownloadResponse(BaseModel):
-    filename: str
-    format: str
-    resolution: Optional[str] = None
-    size_mb: Optional[float] = None
-
-
-def get_format_for_resolution(resolution: str, audio_only: bool = False) -> str:
-    """Get yt-dlp format string based on resolution selection."""
-    if audio_only:
-        return "bestaudio/best"
+def get_format_options(format_type: str, resolution: str):
+    """Get yt-dlp format options based on user selection"""
+    if format_type in ["mp3", "m4a", "wav"]:
+        return {
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': format_type,
+                'preferredquality': '192' if format_type == "mp3" else None,
+            }],
+            'postprocessor_args': ['-ar', '44100'] if format_type == "wav" else []
+        }
     
-    format_map = {
-        "360p": "bestvideo[height<=360]+bestaudio/best[height<=360]/best",
-        "480p": "bestvideo[height<=480]+bestaudio/best[height<=480]/best",
-        "720p": "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
-        "1080p": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
-        "1440p": "bestvideo[height<=1440]+bestaudio/best[height<=1440]/best",
-        "2160p": "bestvideo[height<=2160]+bestaudio/best[height<=2160]/best",
-        "best": "bestvideo+bestaudio/best",
+    # Video formats
+    quality_map = {
+        "2160p": "2160",
+        "1440p": "1440", 
+        "1080p": "1080",
+        "720p": "720",
+        "480p": "480",
+        "360p": "360",
+        "best": "best"
     }
-    return format_map.get(resolution, "bestvideo+bestaudio/best")
-
-
-def cleanup_file(file_path: str):
-    """Clean up downloaded file."""
-    try:
-        if os.path.exists(file_path):
-            os.unlink(file_path)
-    except Exception:
-        pass
-
-
-@app.get("/")
-async def root():
-    """Welcome endpoint with API information."""
+    
+    quality = quality_map.get(resolution, "best")
+    
+    if format_type == "mp4":
+        if quality == "best":
+            format_str = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+        else:
+            format_str = f"bestvideo[height<={quality}][ext=mp4]+bestaudio[ext=m4a]/best[height<={quality}][ext=mp4]/best[height<={quality}]"
+    else:  # webm
+        if quality == "best":
+            format_str = "bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/best"
+        else:
+            format_str = f"bestvideo[height<={quality}][ext=webm]+bestaudio[ext=webm]/best[height<={quality}][ext=webm]/best[height<={quality}]"
+    
     return {
-        "message": "Welcome to the Social Media Video Downloader API",
-        "supported_sites": ["YouTube", "Facebook", "Pinterest", "TikTok", "Instagram", "Twitter"],
-        "endpoints": {
-            "/info": "Get video information without downloading",
-            "/download": "Download video with format and resolution options",
-            "/formats": "List available format options"
-        },
-        "usage": "/download?url=<video_url>&format=mp4&resolution=720p or /download?url=<video_url>&format=mp3"
+        'format': format_str,
+        'merge_output_format': format_type
     }
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    """Serve the frontend HTML interface"""
+    html_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    if os.path.exists(html_path):
+        with open(html_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    
+    # Fallback if static file not found
+    return HTMLResponse(content="""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Video Downloader - API Running</title>
+        <style>
+            body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+            .success { color: #22c55e; }
+            .endpoint { background: #f3f4f6; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <h1 class="success">✓ Video Downloader API is Running!</h1>
+        <p>Visit <a href="/docs">/docs</a> for interactive API documentation</p>
+        <h3>Available Endpoints:</h3>
+        <div class="endpoint">GET /info?url=<video_url> - Get video information</div>
+        <div class="endpoint">GET /download?url=<video_url>&format=mp4&resolution=720p - Download video</div>
+        <div class="endpoint">GET /formats - Get available formats and resolutions</div>
+        <h3>Supported Platforms:</h3>
+        <p>YouTube, Facebook, Pinterest, TikTok, Instagram, Twitter/X</p>
+    </body>
+    </html>
+    """)
 
 
 @app.get("/formats")
-async def list_formats():
-    """List available download formats and resolutions."""
+async def get_formats():
+    """Get available formats and resolutions"""
     return {
-        "video_formats": ["mp4", "webm"],
-        "audio_formats": ["mp3", "m4a", "wav"],
-        "resolutions": ["360p", "480p", "720p", "1080p", "1440p", "2160p", "best"],
-        "default": {"format": "mp4", "resolution": "720p"}
+        "platforms": SUPPORTED_PLATFORMS,
+        "resolutions": RESOLUTIONS,
+        "formats": FORMATS
     }
 
 
-@app.get("/info", response_model=VideoInfo)
-async def get_video_info(url: str = Query(..., description="Video URL from supported platforms")):
-    """Extract video metadata without downloading."""
+@app.get("/info")
+async def get_video_info(url: str = Query(..., description="Video URL to analyze")):
+    """Get video information without downloading"""
+    # Always use no format restriction for info endpoint
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'extract_flat': False,
+        'ignoreerrors': True,
+        'format': 'best'  # Just for metadata, won't fail
+    }
+    
     try:
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'skip_download': True,
-            'extract_flat': False,
-        }
-        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             
+            if not info:
+                raise HTTPException(status_code=404, detail="Video not found")
+            
             # Extract available formats
-            available_formats = []
-            formats = info.get('formats', [])
-            seen_heights = set()
-            
-            for f in formats:
-                height = f.get('height')
-                ext = f.get('ext', '')
-                vcodec = f.get('vcodec')
-                
-                if height and height not in seen_heights:
-                    seen_heights.add(height)
-                    format_info = {
-                        "resolution": f"{height}p",
-                        "extension": ext,
-                        "has_video": vcodec is not None,
-                    }
-                    available_formats.append(format_info)
-            
-            # Sort by resolution
-            available_formats.sort(key=lambda x: int(x['resolution'][:-1]) if x['resolution'][:-1].isdigit() else 0)
+            formats_list = []
+            if 'formats' in info:
+                for fmt in info['formats']:
+                    if fmt.get('height'):
+                        formats_list.append(f"{fmt['height']}p")
+            formats_list = sorted(list(set(formats_list)), key=lambda x: int(x[:-1]) if x[:-1].isdigit() else 0)
             
             return VideoInfo(
-                title=info.get("title", "Unknown").replace("/", "-").replace("\\", "-"),
-                duration=info.get("duration"),
-                thumbnail=info.get("thumbnail"),
-                uploader=info.get("uploader") or info.get("channel"),
-                available_formats=available_formats[-10:]  # Limit to last 10 formats
+                title=info.get('title', 'Unknown'),
+                duration=info.get('duration'),
+                thumbnail=info.get('thumbnail'),
+                uploader=info.get('uploader') or info.get('channel'),
+                available_formats=formats_list[:10] if formats_list else ["best"],
+                url=url
             )
             
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching video info: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error fetching video info: {str(e)}")
 
 
 @app.get("/download")
 async def download_video(
-    url: str = Query(..., description="Video URL from YouTube, Facebook, Pinterest, TikTok, etc."),
-    format: str = Query("mp4", description="Output format: mp4, mp3, m4a, webm"),
-    resolution: Optional[str] = Query("720p", description="Video resolution: 360p, 480p, 720p, 1080p, 1440p, 2160p, best")
+    url: str = Query(..., description="Video URL to download"),
+    format: str = Query("mp4", description="Output format (mp4, webm, mp3, m4a, wav)"),
+    resolution: str = Query("720p", description="Video resolution (360p, 480p, 720p, 1080p, 1440p, 2160p, best)")
 ):
-    """
-    Download video/audio from supported platforms.
+    """Download video/audio from supported platforms"""
     
-    - **url**: Video URL from YouTube, Facebook, Pinterest, TikTok, Instagram, Twitter
-    - **format**: Output format (mp4 for video, mp3 for audio)
-    - **resolution**: Video quality (ignored for audio-only downloads)
-    """
+    # Validate format
+    format = format.lower()
+    all_formats = FORMATS["video"] + FORMATS["audio"]
+    if format not in all_formats:
+        raise HTTPException(status_code=400, detail=f"Unsupported format. Choose from: {all_formats}")
+    
+    # Validate resolution
+    resolution = resolution.lower()
+    if resolution not in [r.lower() for r in RESOLUTIONS]:
+        raise HTTPException(status_code=400, detail=f"Unsupported resolution. Choose from: {RESOLUTIONS}")
+    
     try:
-        # Validate format
-        format = format.lower().strip()
-        audio_only = format in ["mp3", "m4a", "wav", "aac"]
-        
-        # Get appropriate format string
-        yt_dlp_format = get_format_for_resolution(resolution, audio_only)
-        
-        # Extract metadata first
-        with yt_dlp.YoutubeDL({'quiet': True, 'skip_download': True, 'no_warnings': True}) as ydl:
-            info = ydl.extract_info(url, download=False)
-            title = info.get("title", "video").replace("/", "-").replace("\\", "-")
-            # Sanitize filename
-            title = "".join(c for c in title if c.isalnum() or c in " -_.").strip()[:100]
-        
-        # Create unique output template
-        uid = uuid.uuid4().hex[:8]
-        output_template = f"/tmp/{uid}.%(ext)s"
+        # Create temporary directory
+        temp_dir = tempfile.mkdtemp()
+        filename = f"download_{uuid.uuid4().hex}"
+        output_path = os.path.join(temp_dir, filename)
         
         # Configure yt-dlp options
         ydl_opts = {
-            'format': yt_dlp_format,
-            'outtmpl': output_template,
+            'outtmpl': output_path + '.%(ext)s',
             'quiet': True,
             'no_warnings': True,
-            'merge_output_format': 'mp4' if not audio_only else None,
+            'noplaylist': True,
+            **get_format_options(format, resolution)
         }
         
-        # Add post-processing for audio conversion
-        if audio_only:
-            ydl_opts['postprocessors'] = [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': format,
-                'preferredquality': '192',
-            }]
-        
-        # Download using yt-dlp Python API
-        downloaded_file_path = None
+        # Download the video
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            result = ydl.download([url])
+            info = ydl.extract_info(url, download=True)
             
-            # Get the actual file path from the download result
-            if result == 0:
-                # Find the downloaded file
-                base_name = f"/tmp/{uid}"
-                if audio_only:
-                    actual_path = f"{base_name}.{format}"
+            # Find the actual downloaded file
+            downloaded_file = None
+            for ext in ['mp4', 'webm', 'mp3', 'm4a', 'wav', 'mkv']:
+                potential_file = f"{output_path}.{ext}"
+                if os.path.exists(potential_file):
+                    downloaded_file = potential_file
+                    break
+            
+            if not downloaded_file:
+                # Try to find any file in the temp directory
+                files = os.listdir(temp_dir)
+                if files:
+                    downloaded_file = os.path.join(temp_dir, files[0])
                 else:
-                    actual_path = f"{base_name}.mp4"
-                
-                # Try different possible extensions
-                for ext in [format, 'mp4', 'webm', 'mkv', 'm4a']:
-                    test_path = f"{base_name}.{ext}"
-                    if os.path.exists(test_path):
-                        downloaded_file_path = test_path
-                        break
-                
-                # Fallback: search tmp directory
-                if not downloaded_file_path:
-                    for f in os.listdir("/tmp"):
-                        if f.startswith(uid):
-                            downloaded_file_path = os.path.join("/tmp", f)
-                            break
+                    raise HTTPException(status_code=500, detail="Download failed - no file created")
         
-        if not downloaded_file_path or not os.path.exists(downloaded_file_path):
-            raise HTTPException(status_code=500, detail="Download failed or file not found.")
+        # Get file metadata
+        file_size = os.path.getsize(downloaded_file)
+        content_type = "video/mp4" if format == "mp4" else \
+                      "video/webm" if format == "webm" else \
+                      "audio/mpeg" if format == "mp3" else \
+                      "audio/mp4" if format == "m4a" else \
+                      "audio/wav"
         
-        # Get file size
-        file_size_mb = round(os.path.getsize(downloaded_file_path) / (1024 * 1024), 2)
+        # Generate filename
+        safe_title = "".join(c for c in (info.get('title', 'video') if isinstance(info, dict) else 'video') 
+                           if c.isalnum() or c in ' -_')[:50]
+        download_filename = f"{safe_title}.{format}"
         
-        # Determine output filename
-        output_ext = format if audio_only else "mp4"
-        filename = f"{title}.{output_ext}"
-        
-        # Stream file
+        # Create streaming response with cleanup
         def iterfile():
             try:
-                with open(downloaded_file_path, "rb") as f:
-                    yield from f
+                with open(downloaded_file, "rb") as f:
+                    while chunk := f.read(8192):
+                        yield chunk
             finally:
-                cleanup_file(downloaded_file_path)
+                # Cleanup: remove temp files
+                try:
+                    os.remove(downloaded_file)
+                    os.rmdir(temp_dir)
+                except:
+                    pass
+        
+        headers = {
+            "Content-Disposition": f'attachment; filename="{download_filename}"',
+            "Content-Length": str(file_size)
+        }
         
         return StreamingResponse(
             iterfile(),
-            media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "X-File-Size-MB": str(file_size_mb),
-                "X-Original-Title": title,
-            }
+            media_type=content_type,
+            headers=headers
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during download: {str(e)}")
-
-
-@app.post("/download")
-async def download_video_post(
-    url: str,
-    format: str = "mp4",
-    resolution: Optional[str] = "720p"
-):
-    """POST endpoint for downloading (useful for longer URLs)."""
-    return await download_video(url=url, format=format, resolution=resolution)
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
 
 
 if __name__ == "__main__":
+    import os
+    port = int(os.environ.get("PORT", 8000))
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=port)
