@@ -18,6 +18,11 @@ if (isLoggedIn()) {
 $error = '';
 $success = '';
 
+// Check for logout success
+if (isset($_GET['logout']) && $_GET['logout'] === 'success') {
+    $success = 'You have been logged out successfully.';
+}
+
 // Handle login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = sanitizeInput($_POST['email'] ?? '');
