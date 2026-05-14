@@ -1,13 +1,14 @@
 -- Crypto Investment Platform Database Schema
 -- Run this SQL to create all necessary tables
+-- IMPORTANT: First create a database in cPanel, then select it and run this script
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
 
--- Create Database
-CREATE DATABASE IF NOT EXISTS `crypto_investment` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `crypto_investment`;
+-- Note: CREATE DATABASE command removed for shared hosting compatibility
+-- Make sure you've selected your database before running this script
+-- Example: USE your_database_name;
 
 -- Users Table
 CREATE TABLE `users` (
