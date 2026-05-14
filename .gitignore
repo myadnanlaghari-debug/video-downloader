@@ -1,4 +1,36 @@
-```sql
--- No changes needed for database/schema.sql - it's a source file
--- Output remains empty as only a SQL schema file was modified
+```php
+# Environment and configuration files
+.env
+.env.local
+.env.*
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# PHP specific
+*.php~
+phpunit.xml.dist
+coverage/
+
+# Database
+*.sql.bak
+*.db.bak
+
+# Web server
+.htaccess
+web.config
 ```

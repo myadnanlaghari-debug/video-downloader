@@ -9,9 +9,9 @@
  */
 
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'u577740496_your_database_name');  // CHANGE THIS
-define('DB_USER', 'u577740496_your_username');       // CHANGE THIS
-define('DB_PASS', 'your_password');                  // CHANGE THIS
+define('DB_NAME', 'u577740496_crypto_invest');
+define('DB_USER', 'u577740496_crypto_user');
+define('DB_PASS', 'Adnan7272!');
 define('DB_CHARSET', 'utf8mb4');
 
 // Site Configuration

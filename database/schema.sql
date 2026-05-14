@@ -3,7 +3,7 @@
 -- ========================================
 -- Instructions:
 -- 1. Create your database via cPanel first
--- 2. Select your database in phpMyAdmin
+-- 2. Select your database in phpMyAdmin  
 -- 3. Import this SQL file
 -- ========================================
 
@@ -34,6 +34,7 @@ CREATE TABLE `users` (
   `referred_by` INT(11) DEFAULT NULL,
   `avatar` VARCHAR(255) DEFAULT NULL,
   `status` ENUM('active', 'suspended', 'deleted') DEFAULT 'active',
+  `last_login` TIMESTAMP NULL DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
