@@ -2,12 +2,16 @@
 /**
  * Database Configuration
  * Crypto Investment Platform
+ * 
+ * IMPORTANT: Update these values with your hosting database credentials
+ * For shared hosting, database names usually include your cPanel username prefix
+ * Example: u577740496_crypto_invest
  */
 
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'crypto_investment');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_NAME', 'u577740496_your_database_name');  // CHANGE THIS
+define('DB_USER', 'u577740496_your_username');       // CHANGE THIS
+define('DB_PASS', 'your_password');                  // CHANGE THIS
 define('DB_CHARSET', 'utf8mb4');
 
 // Site Configuration
